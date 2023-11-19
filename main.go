@@ -7,6 +7,7 @@ import (
 	"math/bits"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 type Tree struct {
@@ -18,10 +19,12 @@ type Tree struct {
 
 func (t *Tree) addChild(new *Tree) {
 	t.children = append(t.children, new)
-	new.parent = t
+	new.parent = t 
+	new.receiver = make(chan uint64)
 }
 
-func (t *Tree) sixColoringRound() {
+func (t *Tree) sixColoringRound(wg *sync.WaitGroup) {
+	defer wg.Done()
 	t.sendIdToChildren()
 	if t.parent == nil {
 		t.id = 0 | (t.id & 1)
@@ -34,12 +37,15 @@ func (t *Tree) sixColoringRound() {
 	// Finds value at LSB
 	valueAtIndex := (t.id >> index) & 1
 	t.id = ((index << 1) | valueAtIndex)
+
+	//fmt.Println(t.id)
 }
 
 func (t * Tree) sendIdToChildren() {
 	for _, child := range t.children {
 		child.receiver <- t.id
 	}
+
 }
 
 func (t *Tree) getSmallestDiffIndex(oldParentsId uint64) uint64 {
@@ -66,6 +72,7 @@ func buildTreeFromFile(filePath string) (*Tree, int, error) {
 		return nil, 0, err
 	}
 	root := &Tree{id: rootID}
+	root.receiver = make(chan uint64)
 	treeMap[rootID] = root
 
 	for scanner.Scan(){
@@ -105,22 +112,31 @@ func buildTreeFromFile(filePath string) (*Tree, int, error) {
 
 }
 
-func traverseTree(root *Tree) {
+func treeToList(root *Tree, nodes *[]*Tree) {
 	if root == nil {
 		return
 	}
 
-	fmt.Println(root.id)
+	*nodes = append(*nodes, root)
 
 	for _, child := range root.children {
-		traverseTree(child)
+		treeToList(child, nodes)
 	}
 }
 
+func checkColorsRange(nodes []*Tree) bool{
+	for _, node := range nodes{
+		if node.id > 5{
+			return false
+		}
+	}
+
+	return true
+}
 
 
 func main() {
-	filePath := "example_tree.txt"
+	filePath := "example_tree3.txt"
 
 	tree, size, err := buildTreeFromFile(filePath)
 
@@ -133,16 +149,37 @@ func main() {
 	fmt.Printf("Root ID: %d\n", tree.id)
 	fmt.Printf("Size of the tree: %d\n", size)
 
-	traverseTree(tree)
+	nodes := []*Tree{}
+	treeToList(tree, &nodes)
 
-	/*var wg sync.WaitGroup
-	wg.Add(size)
+	var wg sync.WaitGroup
+	
+	for{
+		wg.Add(size)
+		for _, node := range nodes{
+			go node.sixColoringRound(&wg)
+		}
 
-	for {
-		traverse
+		wg.Wait()
 
+		for i, node := range nodes{
+			fmt.Printf("%d", node.id)
+			if i != len(nodes) - 1{
+				fmt.Print(", ")
+			}
+		}
 
-	}*/
+		fmt.Printf("\n")
+
+		colorsInRange := checkColorsRange(nodes)
+
+		if colorsInRange {
+			fmt.Println("Six coloring stage completed!")
+			break;
+		}
+		
+	}
+	
 	
 	
 }
