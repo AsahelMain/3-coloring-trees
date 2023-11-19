@@ -57,7 +57,7 @@ func (t *Tree) getSmallestDiffIndex(oldParentsId uint64) uint64 {
 
 func buildTreeFromFile(filePath string) (*Tree, int, error) {
 	file, err := os.Open(filePath)
-
+	defer file.Close()
 	if err != nil {
 		return nil, 0, err
 	}
