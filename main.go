@@ -3,8 +3,8 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"os"
 	"math/bits"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,6 +21,73 @@ func (t *Tree) addChild(new *Tree) {
 	t.children = append(t.children, new)
 	new.parent = t 
 	new.receiver = make(chan uint64)
+}
+
+func (t *Tree) shiftDown() {
+	t.sendIdToChildren()
+	if t.parent == nil {
+		for color := 0; color < 3; color++ {
+			if color != int(t.id) {
+				t.id = uint64(color)
+				return
+			}
+		}
+	}
+	t.id = <-t.receiver
+}
+
+func (t *Tree) six2ThreeRound(wg *sync.WaitGroup) {
+	defer wg.Done()
+	t.shiftDown()
+	var innerWg sync.WaitGroup
+	innerWg.Add(2)
+	go func(wg *sync.WaitGroup){
+		defer wg.Done()
+		t.sendIdToChildren()
+		if (t.parent != nil) {
+			t.parent.receiver <- t.id
+		}
+	}(&innerWg)
+	go func(wg *sync.WaitGroup){
+		defer wg.Done()
+		to_receive := len(t.children)
+		if (t.parent != nil) {
+			to_receive++
+		}
+		ids_received := make(map[uint64]bool)
+		for i := 0; i < to_receive; i++ {
+			ids_received[<-t.receiver] = true
+		}
+		for i := uint64(0); i <= 2; i++ {
+			if ids_received[i] == false {
+				t.id = i
+				break
+			}
+		}
+
+	}(&innerWg)
+	innerWg.Wait()	
+}
+
+func  six2three(nodes []*Tree) {
+	var wg sync.WaitGroup
+	
+	for x := 4; x <= 6; x++ {
+		wg.Add(len(nodes))
+		for _, node := range nodes {
+			go node.six2ThreeRound(&wg)
+		}
+		wg.Wait()
+	}
+}
+
+
+func (t *Tree) sendIdToNeighbors() {
+	t.sendIdToChildren()
+	if (t.parent == nil) {
+		return
+	}
+	t.parent.receiver <- t.id
 }
 
 func (t *Tree) sixColoringRound(wg *sync.WaitGroup) {
@@ -46,6 +113,18 @@ func (t * Tree) sendIdToChildren() {
 		child.receiver <- t.id
 	}
 
+}
+
+func (t* Tree) String() string {
+	var s string
+	s = fmt.Sprintf("%d: ", t.id)
+	for i, child := range t.children {
+		s = fmt.Sprintf("%s%d", s, child.id)
+		if i != len(t.children) - 1{
+			s += ", "
+		}
+	}
+	return s
 }
 
 func (t *Tree) getSmallestDiffIndex(oldParentsId uint64) uint64 {
@@ -118,7 +197,7 @@ func treeToList(root *Tree, nodes *[]*Tree) {
 	}
 
 	*nodes = append(*nodes, root)
-
+	fmt.Println(root)
 	for _, child := range root.children {
 		treeToList(child, nodes)
 	}
@@ -136,7 +215,7 @@ func checkColorsRange(nodes []*Tree) bool{
 
 
 func main() {
-	filePath := "example_tree3.txt"
+	filePath := "example_tree.txt"
 
 	tree, size, err := buildTreeFromFile(filePath)
 
@@ -151,9 +230,11 @@ func main() {
 
 	nodes := []*Tree{}
 	treeToList(tree, &nodes)
+	for _, node := range nodes{
+		fmt.Println(node)
+	}
 
 	var wg sync.WaitGroup
-	
 	for{
 		wg.Add(size)
 		for _, node := range nodes{
@@ -162,14 +243,6 @@ func main() {
 
 		wg.Wait()
 
-		for i, node := range nodes{
-			fmt.Printf("%d", node.id)
-			if i != len(nodes) - 1{
-				fmt.Print(", ")
-			}
-		}
-
-		fmt.Printf("\n")
 
 		colorsInRange := checkColorsRange(nodes)
 
@@ -177,9 +250,10 @@ func main() {
 			fmt.Println("Six coloring stage completed!")
 			break;
 		}
-		
+	
 	}
-	
-	
-	
+	six2three(nodes)
+	for _, node := range nodes {
+		fmt.Println(node)
+	}
 }
