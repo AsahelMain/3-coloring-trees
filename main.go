@@ -213,6 +213,56 @@ func checkColorsRange(nodes []*Tree) bool{
 	return true
 }
 
+func processNode(t *Tree) []uint64{
+	var list []uint64
+	list = append(list,  t.id)
+	for _, child:= range t.children{
+		list = append(list, child.id)
+	}
+	return list
+}
+
+func treeToListFile(t *Tree) [][]uint64{
+	var queue = make([]*Tree,0)
+	queue = append(queue, t)
+	var list  [][]uint64
+	list = append(list,[]uint64{t.id})
+	for len(queue) != 0 {
+		node := queue[0]
+		queue = queue[1:]
+		if node.children != nil {
+			list = append (list,processNode(node))
+			for  _, child := range node.children{
+				queue = append(queue, child)
+			}
+		}
+	}
+	return list
+}
+
+func WriteByLines(filename string, lines [][]uint64){
+	file, err := os.Create(filename)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	defer file.Close()
+
+	for _, line := range lines{
+		for _, val := range line{
+			_, err := fmt.Fprintf(file, strconv.FormatUint(val, 10))
+			if err != nil{
+				fmt.Println(err.Error())
+				return
+			}
+		}
+		_, err:= fmt.Fprintf(file,"\n")
+		if err != nil{
+			fmt.Println(err.Error())
+			return
+		}
+	}
+}
 
 func main() {
 	filePath := "example_tree.txt"
@@ -256,4 +306,5 @@ func main() {
 	for _, node := range nodes {
 		fmt.Println(node)
 	}
+	WriteByLines("output.txt",treeToListFile(tree))
 }
