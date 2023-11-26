@@ -27,12 +27,8 @@ func (t *Tree) shiftDown(wg *sync.WaitGroup) {
 	defer wg.Done()
 	t.sendIdToChildren()
 	if t.parent == nil {
-		for color := 0; color < 3; color++ {
-			if color != int(t.id) {
-				t.id = uint64(color)
-				return
-			}
-		}
+		t.id = (t.id + 1) % 3
+		return
 	}
 	t.id = <-t.receiver
 }
