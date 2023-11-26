@@ -23,7 +23,8 @@ func (t *Tree) addChild(new *Tree) {
 	new.receiver = make(chan uint64)
 }
 
-func (t *Tree) shiftDown() {
+func (t *Tree) shiftDown(wg *sync.WaitGroup) {
+	defer wg.Done()
 	t.sendIdToChildren()
 	if t.parent == nil {
 		for color := 0; color < 3; color++ {
@@ -36,9 +37,8 @@ func (t *Tree) shiftDown() {
 	t.id = <-t.receiver
 }
 
-func (t *Tree) six2ThreeRound(wg *sync.WaitGroup) {
+func (t *Tree) first_free(wg *sync.WaitGroup, round int) {
 	defer wg.Done()
-	t.shiftDown()
 	var innerWg sync.WaitGroup
 	innerWg.Add(2)
 	go func(wg *sync.WaitGroup){
@@ -54,9 +54,14 @@ func (t *Tree) six2ThreeRound(wg *sync.WaitGroup) {
 		if (t.parent != nil) {
 			to_receive++
 		}
+		
 		ids_received := make(map[uint64]bool)
 		for i := 0; i < to_receive; i++ {
 			ids_received[<-t.receiver] = true
+		}
+
+		if (t.id != uint64(round)) {
+			return
 		}
 		for i := uint64(0); i <= 2; i++ {
 			if ids_received[i] == false {
@@ -66,18 +71,24 @@ func (t *Tree) six2ThreeRound(wg *sync.WaitGroup) {
 		}
 
 	}(&innerWg)
-	innerWg.Wait()	
+	innerWg.Wait()
 }
-
+func six2threeRound(nodes[] *Tree, round int) {
+	var wg sync.WaitGroup	
+	wg.Add(len(nodes))
+	for _, node := range nodes {
+		go node.shiftDown(&wg)
+	}
+	wg.Wait()
+	wg.Add(len(nodes))
+	for _, node := range nodes {
+		go node.first_free(&wg, round)
+	}
+	wg.Wait()
+}
 func  six2three(nodes []*Tree) {
-	var wg sync.WaitGroup
-	
-	for x := 4; x <= 6; x++ {
-		wg.Add(len(nodes))
-		for _, node := range nodes {
-			go node.six2ThreeRound(&wg)
-		}
-		wg.Wait()
+	for round := 3; round <= 5; round++ {
+		six2threeRound(nodes, round)
 	}
 }
 
@@ -93,13 +104,15 @@ func (t *Tree) sendIdToNeighbors() {
 func (t *Tree) sixColoringRound(wg *sync.WaitGroup) {
 	defer wg.Done()
 	t.sendIdToChildren()
+	// If t is the root.
 	if t.parent == nil {
+		// Sets index equal to 0 and concatenates with
+		// the value of t.id[0].
 		t.id = 0 | (t.id & 1)
 		return 
 	}
-	
 	oldParentsId := <- t.receiver
-	index := t.getSmallestDiffIndex(oldParentsId)
+	index := t.getSmallestDiffIndex(oldParentsId) 
 
 	// Finds value at LSB
 	valueAtIndex := (t.id >> index) & 1
@@ -197,7 +210,7 @@ func treeToList(root *Tree, nodes *[]*Tree) {
 	}
 
 	*nodes = append(*nodes, root)
-	fmt.Println(root)
+	// fmt.Println(root)
 	for _, child := range root.children {
 		treeToList(child, nodes)
 	}
@@ -230,10 +243,11 @@ func main() {
 
 	nodes := []*Tree{}
 	treeToList(tree, &nodes)
+	fmt.Println("Original Tree:")
 	for _, node := range nodes{
 		fmt.Println(node)
 	}
-
+	fmt.Println()
 	var wg sync.WaitGroup
 	for{
 		wg.Add(size)
@@ -242,8 +256,6 @@ func main() {
 		}
 
 		wg.Wait()
-
-
 		colorsInRange := checkColorsRange(nodes)
 
 		if colorsInRange {
@@ -252,7 +264,12 @@ func main() {
 		}
 	
 	}
+	for _, node := range nodes{
+		fmt.Println(node)
+	}
+	fmt.Println()
 	six2three(nodes)
+	fmt.Println("six2three stage completed!")
 	for _, node := range nodes {
 		fmt.Println(node)
 	}
