@@ -259,7 +259,7 @@ func WriteByLines(filename string, lines [][]uint64){
 
 	for _, line := range lines{
 		for _, val := range line{
-			_, err := fmt.Fprintf(file, strconv.FormatUint(val, 10))
+			_, err := fmt.Fprintf(file, "%s " , strconv.FormatUint(val, 10))
 			if err != nil{
 				fmt.Println(err.Error())
 				return
