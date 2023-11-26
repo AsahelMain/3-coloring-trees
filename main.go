@@ -227,11 +227,25 @@ func printTree(root *Tree, level int) {
 		return
 	}
 
-	fmt.Printf("%s- Node color: %d\n", strings.Repeat("  ", level), root.id)
+	color := "\033[0m" 
 
+	switch root.id {
+	case 0:
+		color = "\033[34m" 
+	case 1:
+		color = "\033[31m" 
+	case 2:
+		color = "\033[32m" 
+	}
+
+	fmt.Printf("%s%s- Node ID: %d\n", color, strings.Repeat("  ", level), root.id)
+
+	
 	for _, child := range root.children {
 		printTree(child, level+1)
 	}
+
+	fmt.Print("\033[0m")
 }
 
 
@@ -284,5 +298,6 @@ func main() {
 
 	fmt.Println("\nResulting tree:")
 	printTree(tree, 0)
+
 
 }
