@@ -226,9 +226,21 @@ func checkColorsRange(nodes []*Tree) bool{
 	return true
 }
 
+func printTree(root *Tree, level int) {
+	if root == nil {
+		return
+	}
+
+	fmt.Printf("%s- Node color: %d\n", strings.Repeat("  ", level), root.id)
+
+	for _, child := range root.children {
+		printTree(child, level+1)
+	}
+}
+
 
 func main() {
-	filePath := "example_tree.txt"
+	filePath := "example_tree3.txt"
 
 	tree, size, err := buildTreeFromFile(filePath)
 
@@ -273,4 +285,8 @@ func main() {
 	for _, node := range nodes {
 		fmt.Println(node)
 	}
+
+	fmt.Println("\nResulting tree:")
+	printTree(tree, 0)
+
 }
